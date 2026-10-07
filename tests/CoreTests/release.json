@@ -1,0 +1,19 @@
+{
+  "assets": [
+    {
+      "name": "FlClash-0.8.99-windows-amd64-setup.exe",
+      "size": 42394159,
+      "digest": "sha256:c0dbd84c8c41f71ac0ab07118278e21792d7eada40d0e91aafb095e2168ed715",
+      "browser_download_url": "https://github.com/chen08209/FlClash/releases/download/v0.8.99/FlClash-0.8.99-windows-amd64-setup.exe"
+    },
+    {
+      "name": "FlClash-0.8.99-windows-arm64-setup.exe",
+      "size": 39342471,
+      "digest": "sha256:10a86361be6c178daf12fee29b67225db9d12f39ad03b652f06a481c31c68064",
+      "browser_download_url": "https://github.com/chen08209/FlClash/releases/download/v0.8.99/FlClash-0.8.99-windows-arm64-setup.exe"
+    }
+  ],
+  "draft": false,
+  "tag_name": "v0.8.99",
+  "prerelease": false
+}

@@ -1,0 +1,130 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run core tests
+        shell: pwsh
+        run: |
+          dotnet run --project tests/CoreTests -- "$env:RUNNER_TEMP/fixtures" "tests/CoreTests/release.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }
+
+  build:
+    needs: test
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [x64, ARM64]
+    env:
+      ARCHITECTURE: ${{ matrix.architecture }}
+      REF_NAME: ${{ github.ref_name }}
+      REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish self-contained WinUI 3 app
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content src/FlClashUpdater.csproj)).Project.PropertyGroup.Version
+          if ($env:REF_TYPE -eq 'tag') {
+            if ($env:REF_NAME -notmatch '^v(?<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$') { throw 'Expected a stable SemVer tag: vMAJOR.MINOR.PATCH.' }
+            $version = $Matches.version
+          }
+          $runtime = if ($env:ARCHITECTURE -eq 'ARM64') { 'win-arm64' } else { 'win-x64' }
+          dotnet publish src/FlClashUpdater.csproj -c Release -r $runtime "-p:Platform=$env:ARCHITECTURE" "-p:Version=$version" --self-contained true -o "$env:RUNNER_TEMP/publish" -v:minimal
+          if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+      - name: Check x64 executable startup
+        if: matrix.architecture == 'x64'
+        shell: pwsh
+        run: |
+          $info = [System.Diagnostics.ProcessStartInfo]::new("$env:RUNNER_TEMP/publish/FlClashUpdater-WinUI3.exe", '--version')
+          $info.UseShellExecute = $false
+          $info.CreateNoWindow = $true
+          $info.RedirectStandardOutput = $true
+          $info.RedirectStandardError = $true
+          $process = [System.Diagnostics.Process]::Start($info)
+          $output = $process.StandardOutput.ReadToEnd()
+          $errorText = $process.StandardError.ReadToEnd()
+          $process.WaitForExit()
+          if ($process.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($output)) { throw "Startup check failed: $errorText" }
+          Write-Host "Executable version: $output"
+      - name: Build setup installer
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path -LiteralPath $compiler)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+          }
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          & $compiler "/DAppVersion=$env:RELEASE_VERSION" "/DArchitecture=$env:ARCHITECTURE" "/DPublishDir=$env:RUNNER_TEMP/publish" "/DOutputDir=$PWD/artifacts" packaging/installer.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ matrix.architecture }}
+          path: artifacts/*-setup.exe
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Validate installer assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=$(find release-assets -maxdepth 1 -type f -name '*-setup.exe' | wc -l)
+          test "$count" -eq 2
+          test -f "release-assets/FlClashUpdater-${RELEASE_TAG#v}-x64-setup.exe"
+          test -f "release-assets/FlClashUpdater-${RELEASE_TAG#v}-ARM64-setup.exe"
+      - name: Publish GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/*-setup.exe --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/*-setup.exe --verify-tag --draft --title "$RELEASE_TAG" --notes 'Download the setup.exe for your architecture. Install, open the app, and click the update button.'
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --latest
