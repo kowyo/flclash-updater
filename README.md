@@ -1,7 +1,11 @@
 # FlClash Updater
 
-Check for new FlClash releases and install updates on Windows.
+Check for new FlClash releases and install updates on Windows or macOS.
 
-[Download](https://github.com/kowyo/flclash-updater/releases/latest)
+## Install
 
-![Screenshot](docs/screenshot.png)
+Download the [latest release](https://github.com/kowyo/flclash-updater/releases/latest).
+
+| Windows | macOS |
+| --- | --- |
+| ![Windows app](docs/screenshot.png) | ![fu in Ghostty on macOS](docs/fu.png) |

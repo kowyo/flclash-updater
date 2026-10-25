@@ -92,9 +92,51 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    env:
+      REF_NAME: ${{ github.ref_name }}
+      REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.12.23'
+          python-version: '3.11'
+      - name: Build Python distributions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$REF_TYPE" == tag ]]; then
+            [[ "$REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo 'Expected a stable SemVer tag: vMAJOR.MINOR.PATCH.' >&2; exit 1; }
+            uv version "${REF_NAME#v}" --frozen
+          fi
+          uv build
+      - name: Check installed fu command
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv tool install dist/*.whl
+          fu_bin="$(uv tool dir --bin)/fu"
+          cd "$RUNNER_TEMP"
+          "$fu_bin" --help
+          status=0
+          "$fu_bin" --invalid || status=$?
+          test "$status" -eq 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: release-macos
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, build-macos]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -110,7 +152,7 @@ jobs:
           pattern: release-*
           merge-multiple: true
           path: release-assets
-      - name: Validate installer assets
+      - name: Validate release assets
         shell: bash
         run: |
           set -euo pipefail
@@ -118,13 +160,23 @@ jobs:
           test "$count" -eq 2
           test -f "release-assets/FlClashUpdater-${RELEASE_TAG#v}-x64-setup.exe"
           test -f "release-assets/FlClashUpdater-${RELEASE_TAG#v}-ARM64-setup.exe"
+          test -f "release-assets/flclash_updater-${RELEASE_TAG#v}-py3-none-any.whl"
+          test -f "release-assets/flclash_updater-${RELEASE_TAG#v}.tar.gz"
       - name: Publish GitHub Release
         shell: bash
         run: |
           set -euo pipefail
+          printf '%s\n' \
+            'Windows: download the setup.exe for your architecture, install it, and click the update button.' \
+            '' \
+            'macOS: install the Python package, then run fu:' \
+            '```sh' \
+            "uv tool install https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/flclash_updater-${RELEASE_TAG#v}-py3-none-any.whl" \
+            'fu' \
+            '```' > "$RUNNER_TEMP/release-notes.md"
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" release-assets/*-setup.exe --clobber
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
           else
-            gh release create "$RELEASE_TAG" release-assets/*-setup.exe --verify-tag --draft --title "$RELEASE_TAG" --notes 'Download the setup.exe for your architecture. Install, open the app, and click the update button.'
+            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --draft --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file "$RUNNER_TEMP/release-notes.md"
