@@ -1,4 +1,3 @@
-#!/usr/bin/env -S uv run --no-project --script
 import hashlib
 import json
 import os
@@ -56,7 +55,7 @@ def stop_app():
 def update():
     if sys.argv[1:]:
         if sys.argv[1:] in (['--help'], ['-h']):
-            print('Usage: fu\nUpdate /Applications/FlClash.app to the latest official stable release while preserving your configuration. Requires uv and write access to the Applications directory.')
+            print('Usage: fu\nUpdate /Applications/FlClash.app to the latest official stable release while preserving your configuration. Requires write access to the Applications directory.')
             return
         raise RuntimeError('Unsupported argument. Run fu --help for usage.')
     if platform.system() != 'Darwin':
@@ -114,9 +113,14 @@ def update():
     print(f'Updated to FlClash {version(APP)} and launched the app. Your configuration has been preserved.')
 
 
-if __name__ == '__main__':
+def main():
     try:
         update()
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
         print(f'Update failed: {error}', file=sys.stderr)
-        sys.exit(1)
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flclash-updater"
+version = "1.0.0"
+description = "Update FlClash on macOS with the fu command"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[project.scripts]
+fu = "flclash_updater:main"
+
+[tool.setuptools]
+py-modules = ["flclash_updater"]

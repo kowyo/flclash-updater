@@ -14,19 +14,22 @@ Check for new FlClash releases and install updates on Windows or macOS.
 
 ### Requirements
 
-- `uv` on your `PATH`, with Python 3.11 or newer available to it.
+- `uv` on your `PATH`. It selects a compatible Python version (3.11 or newer) during installation.
 - Write access to `/Applications` and the existing FlClash app.
 
 ### Install
 
-Clone this repository and install the command in a directory on your `PATH`:
+Install directly from GitHub:
 
 ```sh
-git clone https://github.com/kowyo/flclash-updater.git
-cd flclash-updater
-sudo install -d /usr/local/bin
-sudo install -m 755 fu /usr/local/bin/fu
+uv tool install git+https://github.com/kowyo/flclash-updater.git
 ```
+
+If `fu` is not on your `PATH`, run `uv tool update-shell` and restart your terminal.
+
+To install from a local checkout, run `uv tool install .` in the repository root.
+
+To update the updater itself, run `uv tool upgrade flclash-updater`.
 
 ### Usage
 

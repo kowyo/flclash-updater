@@ -8,3 +8,7 @@ publish/
 *.user
 *.suo
 *.pdb
+__pycache__/
+*.egg-info/
+/build/
+/dist/
