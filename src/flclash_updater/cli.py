@@ -55,7 +55,7 @@ def stop_app():
 def update():
     if sys.argv[1:]:
         if sys.argv[1:] in (['--help'], ['-h']):
-            print('Usage: fu\nUpdate /Applications/FlClash.app to the latest official stable release while preserving your configuration. Requires write access to the Applications directory.')
+            print('Usage: fu')
             return
         raise RuntimeError('Unsupported argument. Run fu --help for usage.')
     if platform.system() != 'Darwin':
