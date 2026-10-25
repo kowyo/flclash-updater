@@ -2,12 +2,10 @@
 
 Check for new FlClash releases and install updates on Windows or macOS.
 
-## Windows
+## Install
 
-[Download](https://github.com/kowyo/flclash-updater/releases/latest)
+Download the [latest release](https://github.com/kowyo/flclash-updater/releases/latest): run the installer on Windows, or install the downloaded wheel with `uv tool install /path/to/flclash_updater-<version>-py3-none-any.whl` and run `fu` on macOS.
 
-![Screenshot](docs/screenshot.png)
+![Windows app](docs/screenshot.png)
 
-## macOS
-
-Install with `uv tool install git+https://github.com/kowyo/flclash-updater.git`, then run `fu` to update FlClash.
+![fu in Ghostty on macOS](docs/fu.png)
