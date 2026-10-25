@@ -6,6 +6,6 @@ Check for new FlClash releases and install updates on Windows or macOS.
 
 Download the [latest release](https://github.com/kowyo/flclash-updater/releases/latest).
 
-![Windows app](docs/screenshot.png)
-
-![fu in Ghostty on macOS](docs/fu.png)
+| Windows | macOS |
+| --- | --- |
+| ![Windows app](docs/screenshot.png) | ![fu in Ghostty on macOS](docs/fu.png) |
