@@ -10,7 +10,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 [project.scripts]
-fu = "flclash_updater:main"
+fu = "flclash_updater.cli:main"
 
 [tool.setuptools]
-py-modules = ["flclash_updater"]
+packages = ["flclash_updater"]
+package-dir = {"" = "src"}
